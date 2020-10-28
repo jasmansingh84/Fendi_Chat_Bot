@@ -1,0 +1,264 @@
+<!DOCTYPE>
+<html>
+
+<head>
+	<meta http-equiv="x-ua-compatible" content="IE=Edge" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.1, maximum-scale=1.0">
+	<script src="libs/jquery.js" type="text/javascript"></script>
+	<script src="libs/jquery.tmpl.min.js" type="text/javascript"></script>
+	<script src="libs/jquery-ui.min.js" type="text/javascript"></script>
+	<link href="libs/jquery-ui.min.css" rel="stylesheet">
+	</link>
+	<script src="../libs/lodash.min.js"></script>
+	<script src="../libs/d3.v4.min.js"></script>
+	<script src="libs/jwt.min.js"></script>
+	<script src="../libs/KoreGraphAdapter.js" type="text/javascript"></script>
+	<script src='../libs/anonymousassertion.js'></script>
+	<script src="../kore-bot-sdk-client.js"></script>
+	<script src="chatWindow.js" type="text/javascript"></script>
+	<script src="../libs/emoji.js" type="text/javascript"></script>
+	<script src="../libs/recorder.js" type="text/javascript"></script>
+	<script src="../libs/recorderWorker.js" type="text/javascript"></script>
+	<link href="chatWindow.css" rel="stylesheet">
+	</link>
+	<link href="../libs/emojione.sprites.css" rel="stylesheet">
+	</link>
+	<link href="../libs/purejscarousel.css" rel="stylesheet">
+	</link>
+	<script src="../libs/purejscarousel.js" type="text/javascript"></script>
+	<script src="custom/customTemplate.js" type="text/javascript"></script>
+	<link href="custom/customTemplate.css" rel="stylesheet">
+	</link>
+	<script type="text/javascript" src="../libs/speech/app.js"></script>
+	<script type="text/javascript" src="../libs/speech/key.js"></script>
+	<script type="text/javascript" src="../libs/client_api.js"></script>
+	<link href="https://fonts.googleapis.com/css?family=Heebo:300,400,500,700&display=swap" rel="stylesheet">
+	<script type="text/javascript">
+
+		$(document).ready(function () {
+			//useLocal=true;
+			function koreGenerateUUID() {
+				var d = new Date().getTime();
+				if (window.performance && typeof window.performance.now === "function") {
+					d += performance.now(); //use high-precision timer if available
+				}
+				var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+					var r = (d + Math.random() * 16) % 16 | 0;
+					d = Math.floor(d / 16);
+					return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+				});
+
+				return uuid;
+			}
+
+			function generateJWT() {
+				var korecookie = localStorage.getItem("korecom");
+				var uuid = (korecookie) || koreGenerateUUID();
+				localStorage.setItem("korecom", uuid);
+				// Header
+				var oHeader = { alg: 'HS256', typ: 'JWT' };
+				// Payload
+				var oPayload = {};
+				var tNow = KJUR.jws.IntDate.get('now');
+				var tEnd = KJUR.jws.IntDate.get('now + 1day');
+				oPayload.iss = "cs-854601e2-4063-5f7a-ae51-3a92ca01ce7c";
+				oPayload.sub = uuid;
+				oPayload.iat = tNow;
+				oPayload.exp = tEnd;
+				oPayload.aud = "";
+				oPayload.isAnonymous = false;
+
+				// Sign JWT
+				var sHeader = JSON.stringify(oHeader);
+				var sPayload = JSON.stringify(oPayload);
+				var sJWT = KJUR.jws.JWS.sign("HS256", sHeader, sPayload, "hAtEZ6K+lvmEnJX6z6H6pVJA2TORUzpOA6y4YH1/JxE=");
+				return sJWT;
+			}
+
+
+			function assertion(options, callback) {
+				options.assertion = generateJWT();
+				options.chatHistory = koreBot.chatHistory;
+				options.handleError = koreBot.showError;
+				options.botDetails = koreBot.botDetails;
+
+				callback(null, options);
+				setTimeout(function () {
+					if (koreBot && koreBot.initToken) {
+						koreBot.initToken(options);
+					}
+				}, 2000);
+			}
+
+			var tokenUrl = "http://localhost:3000/api/";
+			var botOptions = {};
+			botOptions.logLevel = 'debug';
+			botOptions.koreAPIUrl = "https://bots.kore.ai/api/";
+			botOptions.koreSpeechAPIUrl = "https://speech.kore.ai/";
+			botOptions.ttsSocketUrl = 'wss://speech.kore.ai/tts/ws';
+			botOptions.userIdentity = 'nani.sravan.03@gmail.com'; // Provide users email id here
+			botOptions.recorderWorkerPath = '../libs/recorderWorker.js';
+			botOptions.assertionFn = assertion;
+			botOptions.koreAnonymousFn = koreAnonymousFn;
+			botOptions.clientId = "cs-854601e2-4063-5f7a-ae51-3a92ca01ce7c"; // secure client-id
+			/*botOptions.reWriteSocketURL = {
+                     protocol: 'wss',
+                     hostname: 'civadev.nam.nsroot.net',
+                     port: '443'
+                 };*/
+			botOptions.botInfo = {
+				"name": "Fendi_Bot",
+				"_id": "st-dc9dccc0-153d-554c-9d6d-3c9ae541fd60",
+			}; // bot name is case sensitive
+
+			var chatConfig = {
+				botOptions: botOptions,
+				allowIframe: false,
+				isSendButton: true,
+				isTTSEnabled: false,
+				isSpeechEnabled: false,
+				allowGoogleSpeech: false,
+				allowLocation: false,
+				loadHistory: false,
+				messageHistoryLimit: 10,
+				autoEnableSpeechAndTTS: false,
+				graphLib: "d3"
+			};
+			/* 
+				allowGoogleSpeech will use Google cloud service api.
+				Google speech key is required for all browsers except chrome.
+				On Windows 10, Microsoft Edge will support speech recognization.
+			 */
+			var koreBot = koreBotChat();
+			koreBot.show(chatConfig);
+		});
+	</script>
+</head>
+
+<body>
+	<style>
+		body {
+			margin: 0;
+			font-family: 'Heebo', sans-serif;
+		}
+
+		#content-wrapper {
+			display: table;
+		}
+
+		#content {
+			display: table-row;
+		}
+
+		#content>div {
+			display: table-cell
+		}
+
+		/*adding some extras for demo purposes*/
+		#content-wrapper {
+			width: 100%;
+			height: 100%;
+			padding-top: 60px;
+			position: relative;
+		}
+
+		#nav {
+			width: 600px;
+			padding-top: 20px;
+			padding-left: 30px;
+			color: white;
+			font-family: Tahoma, Arial, sans-serif;
+			font-size: 18px;
+			line-height: 30px;
+		}
+
+		#body {}
+
+		#citi-application-header {
+			background-repeat: repeat-x;
+			height: 85px;
+			width: 100%;
+			position: fixed;
+			top: 0;
+			z-index: 100;
+			background: #FFF;
+
+		}
+
+		#citi-application-name {
+			padding-left: 22px;
+			font-family: Interstate-Regular;
+			font-size: 18px;
+			color: #FFF;
+			line-height: 34px;
+		}
+
+		#citi-logo {
+			position: absolute;
+			top: 6px;
+			right: 22px;
+		}
+
+		.user-info {
+			margin-top: 70px;
+			padding: 10px;
+			background: rgba(14, 22, 41, 0.7);
+		}
+
+		.user-info h2 {
+			color: red;
+			margin: 0px 0 10px 0;
+			font-size: 16px;
+			line-height: 1;
+		}
+
+		.user-info p {
+			line-height: 1.5;
+			margin: 0;
+		}
+
+		#content #body {
+			background: url('banner2.jpg') left top no-repeat;
+			background-size: cover;
+		}
+
+		.side-nav {
+			float: right;
+			font-size: 18px;
+			color: #0079c1;
+			padding: 16px 20px 0 20px;
+			text-transform: capitalize;
+			font-family: sans-serif;
+			font-weight: bold;
+		}
+	</style>
+
+	<div id="content-wrapper">
+		<div id="content">
+			<!-- <div id="nav">
+                <p style="">Hi, I am CLAIR, your Risk Virtual Assistant. You can ask me questions like: </p>
+                        <ul>
+                                <li>What is PSE?</li>
+                                <li>Please Explain the meaning of Membership Exposure? </li>
+                                <li>Who is the Citi Chief Risk Officer?</li>
+                                <li>Who is the CRO Asia?</li>
+                                <li>Where can I find the Equity Investments Policy?</li>
+                                <li>Can you give me the website to read the ICG Risk Policy Training?</li>
+                                <li>And many more..</li>
+                        </ul>
+						<br/><br/>
+						
+		<div class="user-info">
+		<h2>IMPORTANT, first-time users:</h2>
+		<p style="font-size: 14px"><I><a style="color: #cc0000" href="uat.cer">Download</a> and click &quot;Open&quot;, then click &quot;Install Certificate...&quot; Follow the prompts and select &quot;Place all certificates in the following store&quot; and choose &quot;Trusted Root Certification Authorities&quot; then reload the page to access the chatbot.</I></P>
+		</div>
+		
+        </div> -->
+			<div id="body">
+				<div id="chatContainer"></div>
+			</div>
+		</div>
+	</div>
+</body>
+
+</html>
